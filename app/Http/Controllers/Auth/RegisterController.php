@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\SignupRequest;
+use App\Models\User;
 
 class RegisterController extends Controller
 {
@@ -16,8 +17,9 @@ class RegisterController extends Controller
 {
     $data = $request->validated();
 
-   
-    dd($data);
+   //Almacenar en la base de datos
+   User::create($data);
+    
 }
    
 }
