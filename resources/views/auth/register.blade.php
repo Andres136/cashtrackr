@@ -1,4 +1,4 @@
-@extends('layouts.auht')
+@extends('layouts.auth')
 
 @section('title')
     Crear Cuenta
