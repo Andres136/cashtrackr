@@ -6,7 +6,9 @@
 
 @section('auth-contents')
 
-<form class="mt-14 space-y-5" novalidate>
+<form method="POST" action="{{ route('login.store') }}" class="mt-14 space-y-5" novalidate>
+    @csrf
+
     <div class="flex flex-col gap-2">
         <label class="font-bold text-2xl" for="email">Email</label>
 
@@ -16,9 +18,14 @@
             placeholder="Email de Registro"
             class="w-full border border-gray-300 p-3 rounded-lg" 
             name="email" 
+            value="{{ old('email') }}"
             tabindex="1" 
+            value={{  old('email') }}
         />
     </div>
+    @error('email')
+        <p class="text-red-600">{{ $message }}</p>
+    @enderror
 
     <div class="flex flex-col gap-2">
         <div class="flex  items-center justify-between">
@@ -33,6 +40,10 @@
             tabindex="2" 
         />
     </div>
+    @error('password')
+        <p class="text-red-600">{{ $message }}</p>
+    @enderror
+
     <input 
         type="submit" 
         value='Iniciar Sesión'

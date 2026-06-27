@@ -14,11 +14,15 @@ Route::get('/auth/register', [RegisterController::class, 'index'])->name('regist
 Route::post('/auth/register', [RegisterController::class, 'store'])->name('register.store');
 
 Route::get('/auth/login', [LoginController::class, 'index'])->name('login');
+Route::post('/auth/login', [LoginController::class, 'store'])->name('login.store');
+
 
 Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
     $request->fulfill();
 
-    return redirect()->route('dashboard');
+    return redirect()
+        ->route('dashboard')
+        ->with('success', 'Tu correo fue verificado correctamente. Ya puedes crear presupuestos y gastos.');
 })->middleware('auth', 'signed')->name('verification.verify');
 
 Route::get('email/verify', function () {
@@ -29,4 +33,4 @@ Route::redirect('/dasboard', '/dashboard');
 
 Route::get('/dashboard', function () {
     return view('dashboard');
-})->middleware([])->name('dashboard');
+})->middleware(['auth', 'verified'])->name('dashboard');
