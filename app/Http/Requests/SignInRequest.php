@@ -8,7 +8,7 @@ use Illuminate\Translation\MessageSelector;
 
 class SignInRequest extends FormRequest
 {
-   public function attributes8(): array
+   public function attributes(): array
     {
         return [
             
@@ -20,7 +20,10 @@ class SignInRequest extends FormRequest
     {
         return [
            
+            'email.required' => 'El email es obligatorio.',
+            'email.email' => 'El email no es valido.',
             'email.exists' => 'No encontramos una cuenta con ese correo electronico.',
+            'password.required' => 'La contraseña es obligatoria.',
            
         ];
     }
@@ -32,7 +35,7 @@ class SignInRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email' => ['required', 'email','exists:users,email'],
+            'email' => ['required', 'email', 'exists:users,email'],
             'password' => ['required'],
             
         ];
