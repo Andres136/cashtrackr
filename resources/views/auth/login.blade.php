@@ -5,9 +5,10 @@
 @endsection
 
 @section('auth-contents')
+
  @if(session('error'))
   
-       <p class="my-10 text-center border border-red-400 bg-red-100 text-red-700 py-3 text-sm">{{ session('error') }}</p>
+    <x-alert type="error" :message="session('error')" />
     
  @endif
 <form method="POST" action="{{ route('login.store') }}" class="mt-14 space-y-5" novalidate>

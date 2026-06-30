@@ -22,7 +22,6 @@ class SignInRequest extends FormRequest
            
             'email.required' => 'El email es obligatorio.',
             'email.email' => 'El email no es valido.',
-            'email.exists' => 'No encontramos una cuenta con ese correo electronico.',
             'password.required' => 'La contraseña es obligatoria.',
            
         ];
