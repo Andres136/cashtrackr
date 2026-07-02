@@ -32,7 +32,9 @@ Route::get('email/verify', function () {
 })->middleware('auth')->name('verification.notice');
 
 Route::post('email/verification-notification', function(Request $request) {
-  dd($request->user());
+
+  $request->user()->sendEmailVerificationNotification();
+   return back()->with('success', 'Se ha enviado un nuevo correo de verificación a tu cuenta.');
 })->middleware('auth')->name('verification.send');
 
 Route::redirect('/dasboard', '/dashboard');

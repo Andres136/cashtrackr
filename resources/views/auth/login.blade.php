@@ -6,11 +6,9 @@
 
 @section('auth-contents')
 
- @if(session('error'))
-  
+  @if(session('error'))
     <x-alert type="error" :message="session('error')" />
-    
- @endif
+    @endif
 <form method="POST" action="{{ route('login.store') }}" class="mt-14 space-y-5" novalidate>
     @csrf
 
