@@ -2,9 +2,11 @@
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
+use App\Models\User;
 
-use Illuminate\Foundation\Auth\EmailVerificationRequest;
+use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -19,13 +21,22 @@ Route::get('/auth/login', [LoginController::class, 'index'])->name('login');
 Route::post('/auth/login', [LoginController::class, 'store'])->name('login.store');
 
 
-Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
-    $request->fulfill();
+Route::get('/email/verify/{id}/{hash}', function (Request $request, string $id, string $hash) {
+    $user = User::findOrFail($id);
+
+    abort_unless(hash_equals($hash, sha1($user->getEmailForVerification())), 403);
+
+    if (! $user->hasVerifiedEmail()) {
+        $user->markEmailAsVerified();
+        event(new Verified($user));
+    }
+
+    Auth::login($user);
 
     return redirect()
         ->route('dashboard')
         ->with('success', 'Tu correo fue verificado correctamente. Ya puedes crear presupuestos y gastos.');
-})->middleware('auth', 'signed')->name('verification.verify');
+})->middleware('signed')->name('verification.verify');
 
 Route::get('email/verify', function () {
     return view('auth.verify-email');
@@ -35,7 +46,7 @@ Route::post('email/verification-notification', function(Request $request) {
 
   $request->user()->sendEmailVerificationNotification();
    return back()->with('success', 'Se ha enviado un nuevo correo de verificación a tu cuenta.');
-})->middleware('auth')->name('verification.send');
+})->middleware('auth', 'throttle:1,1')->name('verification.send');
 
 Route::redirect('/dasboard', '/dashboard');
 
