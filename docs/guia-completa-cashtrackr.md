@@ -1,6 +1,6 @@
 # Guía técnica de CashTrackr
 
-Documento actualizado contra el código de la rama `main` (commit `917ce42`) y los cambios locales existentes al 19 de julio de 2026.
+Documento actualizado contra el código y los cambios locales existentes al 22 de julio de 2026.
 
 ## 1. Alcance y arquitectura
 
@@ -224,6 +224,7 @@ Vite toma `resources/css/app.css` y `resources/js/app.js`. El plugin Laravel act
 | `tests/Pest.php` | Vincula pruebas Feature con `Tests\TestCase`. |
 | `tests/TestCase.php` | Base de pruebas que levanta Laravel. |
 | `tests/Feature/RegisterUserTest.php` | Pruebas de vista, alta, validación, duplicados y evento. |
+| `tests/Feature/LoginUserTest.php` | Pruebas de login, credenciales incorrectas, usuarios no verificados y correos inexistentes. |
 | `phpunit.xml` | Entorno aislado de test: SQLite en memoria, array mail/queue/session/cache. |
 | `composer.json` / `composer.lock` | Dependencias, autoload y scripts PHP. |
 | `.env.example` | Plantilla de configuración sin secretos. |
@@ -240,7 +241,133 @@ Vite toma `resources/css/app.css` y `resources/js/app.js`. El plugin Laravel act
 
 `storage/` contiene logs, sesiones/caché/plantillas compiladas y archivos privados; `vendor/` y `node_modules/` contienen dependencias generadas. No se documenta archivo por archivo su código de terceros. Los archivos `*:Zone.Identifier`, `Untitled-1` y `,` son residuos sin función en la aplicación y deberían evaluarse para eliminación.
 
-## 8. Errores solucionados
+## 8. Orden de creación de los archivos propios
+
+Esta secuencia permite reconstruir el trabajo sin depender del historial del editor. `make:*` genera la estructura inicial; después se completa el código de cada archivo. Las vistas y rutas se crean o editan manualmente porque Artisan no ofrece un generador de vistas en esta instalación.
+
+| Orden | Comando | Archivo generado o editado | Para qué sirve |
+|---:|---|---|---|
+| 1 | `php artisan make:controller Auth/RegisterController` | `app/Http/Controllers/Auth/RegisterController.php` | Muestra el registro y procesa la creación del usuario. |
+| 2 | `php artisan make:request SignupRequest` | `app/Http/Requests/SignupRequest.php` | Autoriza y valida los datos del registro. |
+| 3 | `php artisan make:controller Auth/LoginController` | `app/Http/Controllers/Auth/LoginController.php` | Muestra el login e intenta autenticar las credenciales. |
+| 4 | `php artisan make:request SignInRequest` | `app/Http/Requests/SignInRequest.php` | Valida email y contraseña antes del controlador. |
+| 5 | `php artisan make:notification VerifyEmail` | `app/Notifications/VerifyEmail.php` | Envía el enlace temporal y firmado de verificación. |
+| 6 | `php artisan make:component Alert` | `app/View/Components/Alert.php` y `resources/views/components/alert.blade.php` | Muestra mensajes reutilizables de éxito o error. |
+| 7 | Creación manual | `resources/views/components/input-error.blade.php` | Presenta el error de validación de un campo. |
+| 8 | Creación manual | `resources/views/layouts/base.blade.php` | Define el documento HTML, assets y navegación común. |
+| 9 | Creación manual | `resources/views/layouts/auth.blade.php` | Define el contenedor compartido por login y registro. |
+| 10 | Creación manual | `resources/views/auth/register.blade.php` | Formulario que envía datos a `register.store`. |
+| 11 | Creación manual | `resources/views/auth/login.blade.php` | Formulario que envía credenciales a `login.store`. |
+| 12 | Creación manual | `resources/views/auth/verify-email.blade.php` | Aviso de verificación y reenvío del correo. |
+| 13 | Creación manual | `resources/views/dashboard.blade.php` | Pantalla protegida por autenticación y verificación. |
+| 14 | Edición manual | `app/Models/User.php` | Activa `MustVerifyEmail`, asignación, casts y notificación. |
+| 15 | Edición manual | `routes/web.php` | Conecta URLs con controladores, closures y middleware. |
+| 16 | `php artisan make:test --pest RegisterUserTest` | `tests/Feature/RegisterUserTest.php` | Cubre el flujo de registro y verificación. |
+| 17 | `php artisan make:test --pest LoginUserTest` | `tests/Feature/LoginUserTest.php` | Cubre los casos exitosos y fallidos del login. |
+
+Los archivos base (`artisan`, `bootstrap/*`, `config/*`, migraciones iniciales, `tests/Pest.php`, `tests/TestCase.php`, `composer.json`, `package.json` y Vite) fueron creados por la instalación inicial de Laravel, normalmente con:
+
+```bash
+composer create-project laravel/laravel cashtrackr
+```
+
+### Cómo leer el código de cada tipo de archivo
+
+- Un **controlador** recibe una petición ya validada, ejecuta el caso de uso y devuelve una vista o redirección.
+- Un **FormRequest** declara `rules()` para las reglas, `messages()` para textos personalizados y `attributes()` para nombres humanos.
+- Un **modelo** representa una tabla y define asignación masiva, valores ocultos, casts y contratos de dominio.
+- Una **notificación** define el canal (`mail`) y construye el mensaje y su URL.
+- Una **ruta** declara el verbo HTTP, la URL, la acción, el nombre y los middleware.
+- Una **vista Blade** combina HTML con directivas como `@extends`, `@section`, `@csrf`, `@error` y componentes `<x-...>`.
+- Un **test Feature** prepara datos, simula una petición y comprueba respuesta, sesión, autenticación, eventos o base de datos.
+
+## 9. `LoginUserTest.php` explicado línea por línea
+
+El archivo se generó con:
+
+```bash
+php artisan make:test --pest LoginUserTest
+```
+
+Esta es la lectura de cada línea funcional del archivo actual:
+
+```php
+<?php // Abre el archivo PHP.
+
+use App\Models\User; // Importa el modelo de la aplicación que incluye factory().
+use Illuminate\Foundation\Testing\RefreshDatabase; // Importa el trait de BD de pruebas.
+
+uses(RefreshDatabase::class); // Reinicia la BD entre tests para aislar los casos.
+
+it('logs in a verified user successfully', function () { // Declara el caso exitoso.
+    User::factory()->create([ // Inserta un usuario para el test.
+        'email' => 'juan@juan.com', // Define el correo que se enviará en el login.
+        'password' => bcrypt('password'), // Guarda el hash de la contraseña esperada.
+        'email_verified_at' => now(), // Marca el correo como verificado.
+    ]); // Termina la creación del usuario.
+
+    $response = $this->post(route('login.store'), [ // Simula el POST del formulario.
+        'email' => 'juan@juan.com', // Envía el correo existente.
+        'password' => 'password', // Envía la contraseña sin cifrar para Auth::attempt().
+    ]); // Guarda la respuesta HTTP para comprobarla.
+
+    $response->assertRedirect(route('dashboard')); // Espera una redirección al dashboard.
+    $this->assertAuthenticated(); // Confirma que Laravel inició la sesión.
+}); // Finaliza el primer test.
+
+it('does not log in with invalid credentials', function () { // Caso de contraseña errónea.
+    User::factory()->create([ // Crea un usuario existente.
+        'email' => 'juan@juan.com', // Correo válido y registrado.
+        'password' => bcrypt('password'), // Contraseña verdadera almacenada.
+    ]);
+
+    $response = $this->from(route('login')) // Establece el login como página anterior.
+        ->post(route('login.store'), [ // Envía las credenciales al endpoint.
+            'email' => 'juan@juan.com', // El correo sí pasa la regla exists.
+            'password' => 'incorrect-password', // La contraseña hace fallar Auth::attempt().
+        ]);
+
+    $response->assertRedirect(route('login')); // back() debe regresar al login.
+    $response->assertSessionHas('error', 'Credenciales incorrectas.'); // Comprueba el flash.
+    $this->assertGuest(); // Confirma que no existe sesión autenticada.
+});
+
+it('prevents unverified user from accessing dashboard', function () { // Prueba verified.
+    $user = User::factory()->unverified()->create(); // Crea usuario con fecha de verificación null.
+    $response = $this->actingAs($user)->get(route('dashboard')); // Inicia sesión e intenta entrar.
+    $response->assertRedirect(route('verification.notice')); // verified lo envía al aviso.
+});
+
+it('fails login if user does not exist', function () { // Prueba la regla exists del request.
+    $response = $this->from(route('login')) // Define el destino esperado de back().
+        ->post(route('login.store'), [ // Simula el formulario de login.
+            'email' => 'noexiste@dominio.com', // Correo con formato válido pero no registrado.
+            'password' => 'password', // Cumple la regla required.
+        ]);
+
+    $response->assertRedirect(route('login')); // La validación vuelve al formulario.
+    $response->assertSessionHasErrors('email'); // Comprueba el error de exists sin cambiar el request.
+    $this->assertGuest(); // Nadie debe quedar autenticado.
+});
+```
+
+### Por qué se hicieron las últimas correcciones
+
+- `Illuminate\Foundation\Auth\User` se cambió por `App\Models\User`: solo el modelo del proyecto incluye el factory configurado.
+- `$responde` se unificó como `$response`: PHP considera que son variables diferentes.
+- `assertReedirect` y `asserRedirect` se corrigieron a `assertRedirect`: los primeros métodos no existen.
+- `actingAS` se corrigió a `actingAs` para usar el nombre real del helper.
+- `assertRedirect()` se llama sobre `$response`, mientras `actingAs()` se llama sobre `$this`.
+- Se eliminó `assertOk()` de respuestas que deben redirigir: una respuesta no puede ser simultáneamente `200` y `302`.
+- En el usuario inexistente se usa `assertSessionHasErrors('email')`: `exists:users,email` falla antes de llegar a `LoginController`, sin modificar `SignInRequest`.
+
+Para ejecutar solo este archivo:
+
+```bash
+php artisan test tests/Feature/LoginUserTest.php
+```
+
+## 10. Errores solucionados
 
 La evidencia detallada por commit está en `docs/trabajo-auth-correo.md`. En resumen:
 
@@ -254,23 +381,21 @@ La evidencia detallada por commit está en `docs/trabajo-auth-correo.md`. En res
 - La verificación se adaptó para enlaces abiertos sin sesión, manteniendo firma/hash y autenticando después.
 - Se sincronizaron mensajes personalizados de `SignupRequest` con pruebas Pest.
 
-## 9. Deuda técnica y riesgos vigentes
+## 11. Deuda técnica y riesgos vigentes
 
 Estos puntos no están solucionados en el estado inspeccionado:
 
-1. **Pruebas rotas por cambios locales:** `RegisterUserTest.php` tiene una coma duplicada, una consulta incompleta y falta `;`; `php artisan test` termina en `ParseError` antes de ejecutar casos. Es una modificación local preexistente y no se alteró durante esta documentación.
-2. **CSRF ausente:** `register.blade.php` y `verify-email.blade.php` no contienen `@csrf`, de modo que sus `POST` normalmente reciben HTTP 419 bajo el middleware web. Login sí lo incluye.
-3. **Regeneración de sesión:** login debería regenerar el ID tras `Auth::attempt`.
-4. **Validación de contraseña:** `Password::min(4)` es muy bajo aunque las reglas adicionales eleven la complejidad; conviene mínimo 8–12. `uncompromised()` depende del servicio externo de comprobación y puede afectar tests/red restringida.
-5. **Regla `exists` en login:** revela potencialmente si un correo está registrado y divide los errores; es preferible validar solo formato y devolver un mensaje genérico desde `Auth::attempt`.
-6. **Navegación incompleta:** no hay logout, recuperación de contraseña ni contenido funcional de presupuestos/gastos.
-7. **HTML/layout:** hay etiquetas `nav` desbalanceadas y una clase concatenada `w-fullblock` en `base.blade.php`.
-8. **Fallback CSS enorme:** CSS compilado está incrustado en el layout; puede quedar obsoleto. Es mejor garantizar `npm run build` y una pantalla simple si falta el manifest.
-9. **Residuos del repositorio:** archivos `Zone.Identifier`, `Untitled-1` y `,` no aportan funcionalidad.
+1. **Regeneración de sesión:** login debería regenerar el ID tras `Auth::attempt`.
+2. **Validación de contraseña:** `Password::min(4)` es muy bajo aunque las reglas adicionales eleven la complejidad; conviene mínimo 8–12. `uncompromised()` depende del servicio externo de comprobación y puede afectar tests/red restringida.
+3. **Regla `exists` en login:** revela potencialmente si un correo está registrado y divide los errores; es preferible validar solo formato y devolver un mensaje genérico desde `Auth::attempt`.
+4. **Navegación incompleta:** no hay logout, recuperación de contraseña ni contenido funcional de presupuestos/gastos.
+5. **HTML/layout:** hay etiquetas `nav` desbalanceadas y una clase concatenada `w-fullblock` en `base.blade.php`.
+6. **Fallback CSS enorme:** CSS compilado está incrustado en el layout; puede quedar obsoleto. Es mejor garantizar `npm run build` y una pantalla simple si falta el manifest.
+7. **Residuos del repositorio:** archivos `Zone.Identifier`, `Untitled-1` y `,` no aportan funcionalidad.
 
-## 10. Pruebas y criterio de despliegue
+## 12. Pruebas y criterio de despliegue
 
-El entorno de pruebas usa SQLite en memoria y drivers `array`/`sync`, por lo que no envía correo ni toca servicios reales. La intención de la suite es cubrir pantalla de registro, creación sin verificar, evento `Registered`, obligatorios y email duplicado.
+El entorno de pruebas usa SQLite en memoria y drivers `array`/`sync`, por lo que no envía correo ni toca servicios reales. La suite cubre registro, verificación, login correcto, credenciales incorrectas, usuario inexistente y protección del dashboard. La última verificación completó **13 tests y 49 aserciones sin fallos**.
 
 Antes de desplegar deben pasar, como mínimo:
 

@@ -60,6 +60,145 @@ php artisan test
 git log --oneline
 ```
 
-`route:list` reconoce diez rutas de la aplicación. `php artisan test` no llega a ejecutar pruebas porque el cambio local actual en `tests/Feature/RegisterUserTest.php` contiene sintaxis incompleta. Además, faltan tokens CSRF en los formularios de registro y reenvío. Estos dos puntos son deuda vigente, no correcciones históricas.
+La última ejecución de `php artisan test` finalizó correctamente: **13 tests, 49 aserciones y 0 fallos**.
+
+## Archivos del flujo y comandos para crearlos
+
+Los siguientes son los comandos Artisan reproducibles para generar los archivos principales. Los archivos que Laravel no genera mediante Artisan se crean manualmente en la ruta indicada.
+
+| Comando | Archivo | Responsabilidad |
+|---|---|---|
+| `php artisan make:controller Auth/RegisterController` | `app/Http/Controllers/Auth/RegisterController.php` | Recibe el formulario de registro, crea el usuario y comienza el flujo de verificación. |
+| `php artisan make:controller Auth/LoginController` | `app/Http/Controllers/Auth/LoginController.php` | Muestra el login, intenta autenticar y redirige según el resultado. |
+| `php artisan make:request SignupRequest` | `app/Http/Requests/SignupRequest.php` | Centraliza reglas y mensajes de validación del registro. |
+| `php artisan make:request SignInRequest` | `app/Http/Requests/SignInRequest.php` | Valida email y contraseña antes de ejecutar el login. |
+| `php artisan make:notification VerifyEmail` | `app/Notifications/VerifyEmail.php` | Construye y envía el correo con el enlace firmado de verificación. |
+| `php artisan make:component Alert` | `app/View/Components/Alert.php` y `resources/views/components/alert.blade.php` | Crea la lógica y la vista reutilizable de alertas. |
+| `php artisan make:test --pest RegisterUserTest` | `tests/Feature/RegisterUserTest.php` | Prueba el registro y la verificación del correo. |
+| `php artisan make:test --pest LoginUserTest` | `tests/Feature/LoginUserTest.php` | Prueba login correcto, credenciales inválidas y restricciones de verificación. |
+| Creación manual | `routes/web.php` | Declara URLs, nombres de ruta, controladores y middleware. |
+| Creación manual | `resources/views/auth/login.blade.php` | Renderiza el formulario de inicio de sesión. |
+| Creación manual | `resources/views/auth/register.blade.php` | Renderiza el formulario de registro. |
+| Creación manual | `resources/views/auth/verify-email.blade.php` | Informa que el correo debe verificarse y permite reenviar el enlace. |
+| Creación manual | `resources/views/dashboard.blade.php` | Renderiza el área protegida para usuarios verificados. |
+
+Para ejecutar todo el testing:
+
+```bash
+php artisan test
+```
+
+Para ejecutar solamente los tests de login:
+
+```bash
+php artisan test tests/Feature/LoginUserTest.php
+```
+
+## Explicación de `LoginUserTest.php`
+
+### Preparación
+
+```php
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+uses(RefreshDatabase::class);
+```
+
+- `use App\Models\User` importa el modelo correcto, que incluye el factory de usuarios.
+- `use RefreshDatabase` importa la utilidad que prepara una base limpia para cada test.
+- `uses(RefreshDatabase::class)` activa esa limpieza en todo el archivo y evita que un test contamine a otro.
+
+### Login exitoso de un usuario verificado
+
+```php
+it('logs in a verified user successfully', function () {
+    User::factory()->create([
+        'email' => 'juan@juan.com',
+        'password' => bcrypt('password'),
+        'email_verified_at' => now(),
+    ]);
+
+    $response = $this->post(route('login.store'), [
+        'email' => 'juan@juan.com',
+        'password' => 'password',
+    ]);
+
+    $response->assertRedirect(route('dashboard'));
+    $this->assertAuthenticated();
+});
+```
+
+- `it(...)` declara el comportamiento que se va a probar.
+- `User::factory()->create(...)` inserta un usuario en la base de pruebas.
+- `bcrypt('password')` guarda una contraseña cifrada que coincide con la enviada posteriormente.
+- `email_verified_at => now()` identifica al usuario como verificado.
+- `$this->post(...)` simula el envío del formulario a `login.store`.
+- `assertRedirect(...)` confirma que el login exitoso envía al dashboard.
+- `assertAuthenticated()` confirma que Laravel creó la sesión autenticada.
+
+### Contraseña incorrecta
+
+```php
+$response = $this->from(route('login'))->post(route('login.store'), [
+    'email' => 'juan@juan.com',
+    'password' => 'incorrect-password',
+]);
+
+$response->assertRedirect(route('login'));
+$response->assertSessionHas('error', 'Credenciales incorrectas.');
+$this->assertGuest();
+```
+
+- `from(route('login'))` define la página de origen para que `back()` vuelva al login.
+- La contraseña deliberadamente incorrecta hace fallar `Auth::attempt()`.
+- `assertRedirect(route('login'))` verifica el regreso al formulario.
+- `assertSessionHas(...)` comprueba exactamente el mensaje flash creado por el controlador.
+- `assertGuest()` confirma que no se abrió una sesión.
+
+### Usuario autenticado sin correo verificado
+
+```php
+$user = User::factory()->unverified()->create();
+
+$response = $this->actingAs($user)->get(route('dashboard'));
+
+$response->assertRedirect(route('verification.notice'));
+```
+
+- `unverified()` crea un usuario con `email_verified_at` en `null`.
+- `actingAs($user)` inicia una sesión de prueba con ese usuario.
+- `get(route('dashboard'))` intenta entrar a la ruta protegida.
+- `assertRedirect(route('verification.notice'))` confirma que el middleware `verified` bloquea el acceso.
+
+### Usuario inexistente
+
+```php
+$response = $this->from(route('login'))
+    ->post(route('login.store'), [
+        'email' => 'noexiste@dominio.com',
+        'password' => 'password',
+    ]);
+
+$response->assertRedirect(route('login'));
+$response->assertSessionHasErrors('email');
+$this->assertGuest();
+```
+
+- Se envía un correo que no existe en la tabla `users`.
+- La regla `exists:users,email` de `SignInRequest` rechaza la solicitud antes de ejecutar el controlador.
+- `assertSessionHasErrors('email')` verifica el error por su campo sin cambiar el request ni depender del texto traducido por Laravel.
+- `assertGuest()` confirma que la solicitud rechazada no autenticó a nadie.
+
+## Últimas correcciones realizadas en los tests
+
+- Se reemplazó el modelo incorrecto `Illuminate\Foundation\Auth\User` por `App\Models\User` para habilitar `factory()`.
+- Se unificó la variable de respuesta como `$response`; antes aparecía también `$responde`.
+- Se corrigieron los nombres `asserRedirect`/`assertReedirect` a `assertRedirect` y `actingAS` a `actingAs`.
+- Se evitó combinar `assertRedirect()` (respuesta 3xx) con `assertOk()` (respuesta 200) sobre la misma petición.
+- Las aserciones se ejecutan sobre `$response`, no directamente sobre `$this`.
+- La contraseña cifrada del usuario coincide con la contraseña enviada en el login exitoso.
+- Para credenciales incorrectas se comprueba el flash `error` que realmente crea `LoginController`.
+- Para un correo inexistente se usa `assertSessionHasErrors('email')`, porque la regla `exists` detiene la solicitud antes del controlador.
 
 Consulte `docs/guia-completa-cashtrackr.md` para arquitectura, inventario completo y recomendaciones de despliegue.
