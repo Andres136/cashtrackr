@@ -1,58 +1,51 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# CashTrackr
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+CashTrackr es una aplicación web en Laravel para gestionar usuarios y servir como base de un sistema de presupuestos y gastos. El alcance implementado actualmente incluye registro, inicio de sesión, verificación de correo, reenvío del enlace de verificación y acceso protegido al dashboard.
 
-## About Laravel
+## Stack
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- PHP 8.3 y Laravel 13.
+- Blade para renderizado del lado del servidor.
+- Tailwind CSS 4, Vite 8 y fuentes Bunny para la interfaz.
+- Eloquent y una base configurable (SQLite por defecto; PostgreSQL/Neon mediante `.env`).
+- Notificaciones de Laravel y SMTP/Mailtrap para correo.
+- Pest 4 y PHPUnit 12 para pruebas.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Inicio rápido
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+Requisitos: PHP 8.3+, Composer, Node.js/npm y las extensiones PHP requeridas por Laravel.
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+composer run setup
+composer run dev
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+`composer run setup` instala dependencias, crea `.env`, genera `APP_KEY`, ejecuta migraciones e instala/compila el frontend. `composer run dev` inicia servidor web, worker de colas, visor de logs y Vite en paralelo.
 
-## Contributing
+La aplicación queda disponible normalmente en `http://127.0.0.1:8000`.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## Comandos frecuentes
 
-## Code of Conduct
+```bash
+composer run dev       # entorno de desarrollo completo
+composer test          # limpia caché de config y ejecuta la suite
+npm run dev            # Vite con recarga en caliente
+npm run build          # genera assets optimizados en public/build
+php artisan migrate    # aplica migraciones pendientes
+php artisan route:list # muestra rutas, métodos y middleware
+php artisan pail       # muestra logs en tiempo real
+php artisan queue:work # procesa trabajos en cola
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Documentación
 
-## Security Vulnerabilities
+- [Guía técnica completa](docs/guia-completa-cashtrackr.md): arquitectura, comandos, archivos, rutas y renderizado.
+- [Historial de autenticación y correo](docs/trabajo-auth-correo.md): errores corregidos, evidencia Git y deuda técnica vigente.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Estado actual
 
-## License
+El núcleo de autenticación está implementado. A fecha de esta documentación, la suite de pruebas no puede ejecutarse por cambios locales incompletos en `tests/Feature/RegisterUserTest.php`; además, los formularios de registro y reenvío deben recuperar `@csrf`. Consulte la sección “Deuda técnica” de la guía antes de desplegar.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Seguridad
+
+Nunca se debe versionar `.env`, credenciales de Neon/Mailtrap, tokens ni claves. Use `.env.example` como plantilla sin secretos y `APP_DEBUG=false` en producción.

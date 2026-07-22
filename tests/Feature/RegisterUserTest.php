@@ -1,9 +1,13 @@
 <?php
 
 use Illuminate\Auth\Events\Registered;
+
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use App\Models\User;
+use App\Notifications\VerifyEmail;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\URL;
 
 uses(RefreshDatabase::class);
 
@@ -80,5 +84,56 @@ it('prevents duplicate email addresses', function(){
 });
 
 it('sends the verification email notification after registracion', function() {
+  Notification::fake();
 
+$response = $this->post(route('register.store'), [
+    'name' => 'Juan Perez',
+    'email' => 'juan@juan.com',
+    'password' => 'CashTrackr_Test9@Secure',
+    'password_confirmation' => 'CashTrackr_Test9@Secure',
+]);
+
+$user = User::where('email', 'juan@juan.com')->first();
+
+Notification::assertSentTo(
+    $user,
+    VerifyEmail::class);
+
+});
+
+it('verifies the user email from a signed  verification link', function() {
+
+       $user = User::factory()->unverified()->create();
+       $verificationUrl = URL::temporarySignedRoute(
+            'verification.verify',
+            now()->addMinutes(60),
+            [
+                'id' => $user->getKey(),
+                'hash' => sha1($user->getEmailForVerification()),
+            ]
+        );
+
+        $response = $this->actingAs($user)->get($verificationUrl);
+
+        $response->assertRedirect(route('dashboard'));
+
+        expect($user->fresh()->hasVerifiedEmail())->toBeTrue();
+});
+
+it('does not allow an unverified user to access the dashboard', function () {
+    $user = User::factory()->unverified()->create();
+
+    $response = $this->actingAs($user)->get(route('dashboard'));
+
+    $response->assertRedirect(route('verification.notice'));
+});
+
+it('allow an unverified user to access the dashboard', function () {
+    $user = User::factory()->unverified()->create([
+        'email_verified_at' => now()]);
+
+    $response = $this->actingAs($user)->get(route('dashboard'));
+
+    
+    $response->assertOk();
 });
