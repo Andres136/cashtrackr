@@ -20,7 +20,7 @@ class BudgetController extends Controller
      */
     public function create()
     {
-        //
+        return view('budgets.create');
     }
 
     /**
