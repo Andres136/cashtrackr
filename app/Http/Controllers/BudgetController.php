@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\BudgetRequest;
 use App\Models\Budget;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Attributes\Controllers\Middleware;
@@ -29,9 +30,11 @@ class BudgetController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(BudgetRequest $request)
     {
-        //
+        $data = $request->validated();
+
+        dd($data);
     }
 
     /**
