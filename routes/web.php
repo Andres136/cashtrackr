@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
+use App\Http\Controllers\BudgetController;
+use App\Http\Controllers\LogoutController;
 use App\Models\User;
 
 use Illuminate\Auth\Events\Verified;
@@ -20,6 +22,7 @@ Route::post('/auth/register', [RegisterController::class, 'store'])->name('regis
 Route::get('/auth/login', [LoginController::class, 'index'])->name('login');
 Route::post('/auth/login', [LoginController::class, 'store'])->name('login.store');
 
+Route::post('auht/logout', [LogoutController::class, 'store'])->name('logout.store');
 
 Route::get('/email/verify/{id}/{hash}', function (Request $request, string $id, string $hash) {
     $user = User::findOrFail($id);
@@ -50,6 +53,4 @@ Route::post('email/verification-notification', function(Request $request) {
 
 Route::redirect('/dasboard', '/dashboard');
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', [BudgetController::class, 'index']) ->middleware(['auth', 'verified'])->name('dashboard');
