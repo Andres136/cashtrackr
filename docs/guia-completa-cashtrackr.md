@@ -1,6 +1,6 @@
 # Guía técnica de CashTrackr
 
-Documento actualizado contra el código y los cambios locales existentes al 22 de julio de 2026.
+Documento actualizado contra el código y el historial Git existente al 23 de julio de 2026.
 
 ## 1. Alcance y arquitectura
 
@@ -90,6 +90,8 @@ Este comando ejecuta en paralelo `php artisan serve`, `queue:listen`, `php artis
 | `php artisan migrate:fresh --seed` | Recrea todas las tablas y carga seeders; borra datos. | Solo desarrollo/pruebas. |
 | `php artisan db:seed` | Ejecuta `DatabaseSeeder`. | Datos iniciales. |
 | `php artisan route:list` | Lista rutas, nombres, acciones y middleware. | Diagnóstico del flujo HTTP. |
+| `php artisan view:clear` | Elimina las vistas Blade compiladas. | Cuando se muestra una versión anterior. |
+| `php artisan view:cache` | Compila todas las vistas Blade. | Validar sintaxis y preparar despliegue. |
 | `php artisan config:clear` | Elimina caché de configuración. | Tras editar `.env`. |
 | `php artisan optimize:clear` | Limpia cachés de config, rutas, vistas y eventos. | Resolver caché obsoleta. |
 | `php artisan queue:work` | Procesa trabajos en cola. | Si se encolan notificaciones/jobs. |
@@ -105,10 +107,12 @@ Este comando ejecuta en paralelo `php artisan serve`, `queue:listen`, `php artis
 | `POST /auth/register` | `register.store` | Valida y crea usuario. | Pública, middleware web. |
 | `GET /auth/login` | `login` | `LoginController@index`. | Pública. |
 | `POST /auth/login` | `login.store` | Intenta autenticar. | Pública, middleware web. |
+| `POST /auht/logout` | `logout.store` | Cierra la sesión y redirige al login. | Middleware web; la URL conserva un typo pendiente. |
 | `GET /email/verify` | `verification.notice` | Vista para revisar el correo. | `auth`. |
 | `GET /email/verify/{id}/{hash}` | `verification.verify` | Valida firma/hash y confirma. | `signed`. |
 | `POST /email/verification-notification` | `verification.send` | Reenvía notificación. | `auth`, máximo 1/minuto. |
 | `GET /dashboard` | `dashboard` | Renderiza dashboard. | `auth`, `verified`. |
+| `GET /dashboard/budgets/create` | `budgets.create` | Renderiza la creación de presupuestos. | `auth`, `verified`. |
 | `ANY /dasboard` | — | Corrige el typo hacia `/dashboard`. | Redirección. |
 | `GET /up` | — | Health check de Laravel. | Pública. |
 
@@ -143,7 +147,32 @@ La ruta permite confirmar desde otro navegador porque no exige una sesión previ
 3. Si falla, vuelve atrás con flash `error`; si funciona, redirige a `dashboard`.
 4. `verified` decide si el usuario puede ver el dashboard o debe confirmar el correo.
 
-Observación: después de autenticar conviene ejecutar `$request->session()->regenerate()` para prevenir session fixation. Tampoco existe aún una ruta de logout ni recuperación de contraseña.
+Observación: después de autenticar conviene ejecutar `$request->session()->regenerate()` para prevenir session fixation. Todavía no existe recuperación de contraseña.
+
+### Cierre de sesión
+
+El menú envía un formulario `POST` con `@csrf` a `logout.store`. La ruta llama a `LogoutController::store()`, ejecuta `Auth::logout()` y redirige a `login`.
+
+```text
+Botón “Cerrar Sesión”
+ → POST logout.store
+ → LogoutController::store()
+ → Auth::logout()
+ → redirect login
+```
+
+### Creación de presupuestos
+
+“Nuevo Presupuesto” abre `budgets.create`. El controlador devuelve `budgets.create`, que extiende `layouts.app` y renderiza los campos mediante `<x-budget-form />`.
+
+```text
+Dashboard
+ → GET budgets.create
+ → BudgetController::create()
+ → budgets/create.blade.php
+ → <x-budget-form />
+ → components/budget-form.blade.php
+```
 
 ## 6. Cómo se renderiza una vista
 
@@ -264,6 +293,12 @@ Esta secuencia permite reconstruir el trabajo sin depender del historial del edi
 | 15 | Edición manual | `routes/web.php` | Conecta URLs con controladores, closures y middleware. |
 | 16 | `php artisan make:test --pest RegisterUserTest` | `tests/Feature/RegisterUserTest.php` | Cubre el flujo de registro y verificación. |
 | 17 | `php artisan make:test --pest LoginUserTest` | `tests/Feature/LoginUserTest.php` | Cubre los casos exitosos y fallidos del login. |
+| 18 | `php artisan make:controller LogoutController` | `app/Http/Controllers/LogoutController.php` | Finaliza la autenticación y vuelve al login. |
+| 19 | `php artisan make:model Budget -mcr` | `app/Models/Budget.php`, migración y `app/Http/Controllers/BudgetController.php` | Genera modelo, migración y controlador de recursos. |
+| 20 | `php artisan make:component BudgetForm` | `app/View/Components/BudgetForm.php` y `resources/views/components/budget-form.blade.php` | Genera la clase y la vista de los campos reutilizables. |
+| 21 | Creación manual | `resources/views/budgets/create.blade.php` | Página que contiene el formulario y llama a `<x-budget-form />`. |
+| 22 | Edición manual | `resources/views/components/dropdown-menu.blade.php` | Conecta “Cerrar Sesión” con `logout.store`. |
+| 23 | Edición manual | `resources/views/dashboard.blade.php` | Conecta “Nuevo Presupuesto” con `budgets.create`. |
 
 Los archivos base (`artisan`, `bootstrap/*`, `config/*`, migraciones iniciales, `tests/Pest.php`, `tests/TestCase.php`, `composer.json`, `package.json` y Vite) fueron creados por la instalación inicial de Laravel, normalmente con:
 
@@ -380,6 +415,8 @@ La evidencia detallada por commit está en `docs/trabajo-auth-correo.md`. En res
 - El reenvío dejó de usar `dd`, añadió límite de frecuencia y mensaje de éxito.
 - La verificación se adaptó para enlaces abiertos sin sesión, manteniendo firma/hash y autenticando después.
 - Se sincronizaron mensajes personalizados de `SignupRequest` con pruebas Pest.
+- La ruta de cierre de sesión dejó de apuntar al controlador de registro y ahora utiliza `LogoutController`.
+- Los campos del presupuesto no aparecían porque el componente existía pero no se renderizaba; se añadió `<x-budget-form />`.
 
 ## 11. Deuda técnica y riesgos vigentes
 
@@ -388,12 +425,81 @@ Estos puntos no están solucionados en el estado inspeccionado:
 1. **Regeneración de sesión:** login debería regenerar el ID tras `Auth::attempt`.
 2. **Validación de contraseña:** `Password::min(4)` es muy bajo aunque las reglas adicionales eleven la complejidad; conviene mínimo 8–12. `uncompromised()` depende del servicio externo de comprobación y puede afectar tests/red restringida.
 3. **Regla `exists` en login:** revela potencialmente si un correo está registrado y divide los errores; es preferible validar solo formato y devolver un mensaje genérico desde `Auth::attempt`.
-4. **Navegación incompleta:** no hay logout, recuperación de contraseña ni contenido funcional de presupuestos/gastos.
+4. **Recuperación pendiente:** existe logout, pero todavía no hay recuperación de contraseña.
 5. **HTML/layout:** hay etiquetas `nav` desbalanceadas y una clase concatenada `w-fullblock` en `base.blade.php`.
 6. **Fallback CSS enorme:** CSS compilado está incrustado en el layout; puede quedar obsoleto. Es mejor garantizar `npm run build` y una pantalla simple si falta el manifest.
 7. **Residuos del repositorio:** archivos `Zone.Identifier`, `Untitled-1` y `,` no aportan funcionalidad.
+8. **Logout:** la URL actual es `/auht/logout`; debería ser `/auth/logout`, usar middleware `auth` e invalidar la sesión y regenerar el token CSRF.
+9. **Presupuestos sin persistencia:** el formulario no declara `method` ni `action`, no hay ruta `POST` y `BudgetController::store()` está vacío.
+10. **Esquema inconsistente:** el formulario envía `amount`, pero la migración de `budgets` no contiene esa columna.
 
-## 12. Pruebas y criterio de despliegue
+## 12. Código, comandos y errores del 23 de julio
+
+### Qué creó cada comando
+
+| Comando | Archivos creados | Código agregado después |
+|---|---|---|
+| `php artisan make:controller LogoutController` | `app/Http/Controllers/LogoutController.php` | `store()` cierra la sesión y redirige. |
+| `php artisan make:model Budget -mcr` | Modelo, migración y controlador de `Budget` | Columnas iniciales y método `create()`. |
+| `php artisan make:component BudgetForm` | Clase y plantilla Blade del componente | Campos `name`, `amount`, `type` y sus errores. |
+| Creación manual | `resources/views/budgets/create.blade.php` | Página, formulario, CSRF, botón y componente. |
+
+### Solución del cierre de sesión
+
+```php
+public function store()
+{
+    Auth::logout();
+
+    return redirect()->route('login');
+}
+```
+
+```blade
+<form action="{{ route('logout.store') }}" method="POST">
+    @csrf
+    <button type="submit">Cerrar Sesión</button>
+</form>
+```
+
+El error era que `logout.store` ejecutaba `RegisterController::store()`. Por eso el botón intentaba procesar un registro y nunca llamaba a `Auth::logout()`.
+
+### Solución de los campos que no aparecían
+
+```blade
+<form class="mt-14 space-y-3 max-w-2xl mx-auto" novalidate>
+    @csrf
+    <x-budget-form />
+    <input type="submit" value="Crear Presupuesto">
+</form>
+```
+
+`components/budget-form.blade.php` ya contenía los campos, pero Laravel no inserta un componente automáticamente. La vista de creación debía renderizarlo explícitamente mediante `<x-budget-form />`.
+
+### Comandos de diagnóstico y verificación
+
+```bash
+php artisan route:list --name=budgets
+php artisan view:clear
+php artisan view:cache
+git status --short
+git diff
+git diff --check
+git log
+git show
+rg
+sed
+```
+
+- `route:list` confirmó la ruta de presupuestos.
+- `view:clear` eliminó plantillas compiladas antiguas.
+- `view:cache` confirmó que Blade compilaba sin errores.
+- Git permitió comprobar commits, archivos nuevos y modificaciones.
+- `rg` buscó referencias y `sed` mostró secciones concretas.
+
+El inventario fechado, incluidos ambos commits y todos sus archivos, está en `docs/trabajo-auth-correo.md`.
+
+## 13. Pruebas y criterio de despliegue
 
 El entorno de pruebas usa SQLite en memoria y drivers `array`/`sync`, por lo que no envía correo ni toca servicios reales. La suite cubre registro, verificación, login correcto, credenciales incorrectas, usuario inexistente y protección del dashboard. La última verificación completó **13 tests y 49 aserciones sin fallos**.
 

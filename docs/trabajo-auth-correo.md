@@ -201,4 +201,75 @@ $this->assertGuest();
 - Para credenciales incorrectas se comprueba el flash `error` que realmente crea `LoginController`.
 - Para un correo inexistente se usa `assertSessionHasErrors('email')`, porque la regla `exists` detiene la solicitud antes del controlador.
 
+## Trabajo realizado el 23 de julio de 2026
+
+El historial Git registra dos entregas durante esta jornada:
+
+| Commit | Cambio |
+|---|---|
+| `6a81ef3` | Se agregó el cierre de sesión, su redirección al login y la estructura inicial de presupuestos. |
+| `bf38273` | Se agregó la pantalla para crear presupuestos y se mostraron sus campos mediante el componente `BudgetForm`. |
+
+### Cierre de sesión
+
+- Se creó `LogoutController`.
+- El menú desplegable envía una petición `POST` con protección CSRF a la ruta `logout.store`.
+- La ruta ejecuta `Auth::logout()` y redirige al formulario de inicio de sesión.
+- Se corrigió la asociación de la ruta para que use `LogoutController` y no el controlador de registro.
+
+### Estructura de presupuestos
+
+- Se crearon el modelo `Budget`, su migración y `BudgetController`.
+- La migración define nombre, tipo, propietario, marcas de tiempo y borrado lógico.
+- El dashboard ahora enlaza con la ruta `budgets.create`.
+- `BudgetController::create()` devuelve la vista `budgets.create`.
+- Se creó el componente Blade `BudgetForm` con los campos `name`, `amount` y `type`.
+- La vista de creación renderiza el componente con `<x-budget-form />`; tener el archivo del componente creado no hace que Laravel lo muestre automáticamente.
+
+### Comandos de creación asociados
+
+Estos comandos Artisan permiten reproducir la creación de los archivos generados durante la jornada:
+
+| Comando | Archivos generados |
+|---|---|
+| `php artisan make:controller LogoutController` | `app/Http/Controllers/LogoutController.php` |
+| `php artisan make:model Budget -mcr` | `app/Models/Budget.php`, la migración `create_budgets_table.php` y `app/Http/Controllers/BudgetController.php` |
+| `php artisan make:component BudgetForm` | `app/View/Components/BudgetForm.php` y `resources/views/components/budget-form.blade.php` |
+
+Las rutas y las vistas de página se editaron o crearon manualmente; no requieren un comando Artisan.
+
+### Comandos de revisión utilizados
+
+| Comando | Uso |
+|---|---|
+| `php artisan route:list --name=budgets` | Confirmar que Laravel reconoce la ruta de creación de presupuestos. |
+| `php artisan view:clear` | Eliminar vistas Blade compiladas anteriormente. |
+| `php artisan view:cache` | Compilar las vistas y comprobar que no tienen errores de sintaxis. |
+| `git status --short` | Consultar archivos nuevos y modificados. |
+| `git diff` y `git diff --check` | Revisar cambios y detectar errores de espacios. |
+| `git log` y `git show` | Verificar los commits y los archivos incluidos. |
+| `rg` | Buscar rutas, controladores, componentes y textos dentro del proyecto. |
+| `sed` | Leer secciones concretas de los archivos durante el diagnóstico. |
+
+### Archivos creados
+
+| Archivo | Finalidad |
+|---|---|
+| `app/Http/Controllers/LogoutController.php` | Cierra la sesión y redirige al login. |
+| `app/Http/Controllers/BudgetController.php` | Controlador de recursos para presupuestos. |
+| `app/Models/Budget.php` | Modelo Eloquent de los presupuestos. |
+| `database/migrations/2026_07_24_010555_create_budgets_table.php` | Crea la tabla `budgets`. El nombre quedó fechado el 24 de julio porque Laravel usa la hora del entorno al generar la migración. |
+| `app/View/Components/BudgetForm.php` | Clase del componente reutilizable del formulario. |
+| `resources/views/components/budget-form.blade.php` | Campos de nombre, cantidad y tipo de presupuesto. |
+| `resources/views/budgets/create.blade.php` | Página para crear un presupuesto. |
+
+### Archivos modificados
+
+| Archivo | Modificación |
+|---|---|
+| `routes/web.php` | Rutas de cierre de sesión, dashboard y creación de presupuestos. |
+| `resources/views/components/dropdown-menu.blade.php` | Formulario y botón para cerrar sesión. |
+| `resources/views/dashboard.blade.php` | Enlace hacia “Nuevo Presupuesto”. |
+| `resources/views/auth/register.blade.php` | Ajuste menor incluido en la entrega de la jornada. |
+
 Consulte `docs/guia-completa-cashtrackr.md` para arquitectura, inventario completo y recomendaciones de despliegue.
