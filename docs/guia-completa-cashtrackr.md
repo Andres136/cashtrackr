@@ -1,6 +1,6 @@
 # Guía técnica de CashTrackr
 
-Documento actualizado contra el código y el historial Git existente al 23 de julio de 2026.
+Documento actualizado contra el código y el historial Git existente al 24 de julio de 2026.
 
 ## 1. Alcance y arquitectura
 
@@ -113,6 +113,7 @@ Este comando ejecuta en paralelo `php artisan serve`, `queue:listen`, `php artis
 | `POST /email/verification-notification` | `verification.send` | Reenvía notificación. | `auth`, máximo 1/minuto. |
 | `GET /dashboard` | `dashboard` | Renderiza dashboard. | `auth`, `verified`. |
 | `GET /dashboard/budgets/create` | `budgets.create` | Renderiza la creación de presupuestos. | `auth`, `verified`. |
+| `POST /dashboard/budgets` | `budgets.store` | Valida los datos enviados al método `store`. | `auth`, `verified`. |
 | `ANY /dasboard` | — | Corrige el typo hacia `/dashboard`. | Redirección. |
 | `GET /up` | — | Health check de Laravel. | Pública. |
 
@@ -173,6 +174,160 @@ Dashboard
  → <x-budget-form />
  → components/budget-form.blade.php
 ```
+
+#### Comandos que generan los archivos del proyecto
+
+Git conserva los archivos creados, pero no guarda el historial de comandos escritos en la terminal. Por eso, la siguiente lista documenta los comandos de Laravel que generan la estructura actual o su equivalente.
+
+##### Estructura inicial de Laravel
+
+La estructura base —`artisan`, `bootstrap/`, `config/`, `public/`, `routes/`, el modelo `User`, su factory, las migraciones iniciales y `DatabaseSeeder`— se obtiene al crear el proyecto:
+
+```bash
+composer create-project laravel/laravel cashtrackr
+cd cashtrackr
+composer install
+npm install
+```
+
+También se puede crear con Laravel Installer:
+
+```bash
+laravel new cashtrackr
+```
+
+No se ejecutan ambos comandos de creación; son dos alternativas para obtener la misma base.
+
+##### Controladores
+
+```bash
+php artisan make:controller Auth/RegisterController
+php artisan make:controller Auth/LoginController
+php artisan make:controller LogoutController
+```
+
+Estos comandos crean las clases que reciben las peticiones de registro, inicio y cierre de sesión.
+
+##### Validación y notificaciones
+
+```bash
+php artisan make:request SignupRequest
+php artisan make:request SignInRequest
+php artisan make:notification VerifyEmail
+```
+
+Los Form Requests separan las reglas y mensajes de validación de los controladores. La notificación construye y envía el correo de verificación.
+
+##### Componentes Blade
+
+```bash
+php artisan make:component Alert
+php artisan make:component BudgetForm
+php artisan make:component InputError --view
+php artisan make:component DropdownMenu --view
+```
+
+`Alert` y `BudgetForm` tienen una clase PHP y una vista Blade. `InputError` y `DropdownMenu` son componentes anónimos: `--view` crea únicamente su plantilla dentro de `resources/views/components`.
+
+##### Vistas Blade
+
+Laravel 13 permite generar las vistas vacías con:
+
+```bash
+php artisan make:view layouts.base
+php artisan make:view layouts.auth
+php artisan make:view layouts.app
+php artisan make:view auth.register
+php artisan make:view auth.login
+php artisan make:view auth.verify-email
+php artisan make:view dashboard
+php artisan make:view budgets.create
+```
+
+El nombre con puntos representa carpetas. Por ejemplo, `budgets.create` crea `resources/views/budgets/create.blade.php`. Después se escribe manualmente el contenido Blade, HTML y Tailwind de cada pantalla.
+
+##### Pruebas
+
+```bash
+php artisan make:test RegisterUserTest
+php artisan make:test LoginUserTest
+```
+
+Los archivos se crean en `tests/Feature`. Como el proyecto usa Pest, contienen pruebas funcionales expresadas con `test()` o `it()`. Se ejecutan con:
+
+```bash
+php artisan test
+```
+
+##### Módulo de presupuestos
+
+Los archivos base del módulo se generan con:
+
+```bash
+php artisan make:model Budget -mcr
+php artisan make:component BudgetForm
+php artisan make:request BudgetRequest
+php artisan make:enum BudgetType
+php artisan migrate
+```
+
+Cada comando tiene una responsabilidad concreta:
+
+| Comando | Archivos generados o acción |
+|---|---|
+| `make:model Budget -mcr` | Crea el modelo `Budget`, su migración y un controlador de recursos con métodos como `index`, `create` y `store`. |
+| `make:component BudgetForm` | Crea la clase PHP `BudgetForm` y su plantilla Blade `components/budget-form.blade.php`. |
+| `make:request BudgetRequest` | Crea el Form Request donde se concentran las reglas y los mensajes de validación. |
+| `make:enum BudgetType` | Crea el enum que limita el tipo a `general` o `goal`. |
+| `migrate` | Ejecuta la migración para crear la tabla `budgets` en la base de datos. |
+
+`BudgetRequest` se generó por separado porque contiene las reglas específicas de `name`, `amount` y `type`. Las rutas de `routes/web.php`, los layouts, el CSS, el JavaScript, la documentación y la configuración personalizada se editan manualmente; no necesitan un generador.
+
+##### Resumen: comando y archivo
+
+| Archivo o grupo | Comando generador |
+|---|---|
+| Proyecto base y archivos de configuración | `composer create-project laravel/laravel cashtrackr` o `laravel new cashtrackr` |
+| `RegisterController`, `LoginController`, `LogoutController` | `php artisan make:controller ...` |
+| `SignupRequest`, `SignInRequest`, `BudgetRequest` | `php artisan make:request ...` |
+| `VerifyEmail` | `php artisan make:notification VerifyEmail` |
+| `Alert`, `BudgetForm` | `php artisan make:component ...` |
+| Componentes Blade sin clase PHP | `php artisan make:component Nombre --view` |
+| Vistas de layouts, autenticación, dashboard y presupuestos | `php artisan make:view carpeta.nombre` |
+| Modelo, migración y controlador de presupuestos | `php artisan make:model Budget -mcr` |
+| `BudgetType` | `php artisan make:enum BudgetType` |
+| Pruebas Feature | `php artisan make:test NombreTest` |
+| Tablas en la base de datos | `php artisan migrate` |
+
+#### Qué renderiza el código
+
+La petición `GET /dashboard/budgets/create` llama a `BudgetController::create()`. Este método:
+
+```php
+return view('budgets.create');
+```
+
+convierte el nombre con puntos en la ruta `resources/views/budgets/create.blade.php`. Esa vista:
+
+1. Hereda la estructura general con `@extends('layouts.app')`.
+2. Define el título y las acciones mediante `@section`.
+3. muestra el formulario reutilizable con `<x-budget-form />`.
+4. Blade llama a `BudgetForm::render()`, que devuelve `view('components.budget-form')`.
+5. El componente imprime los campos `name`, `amount` y `type`, junto con sus errores.
+
+Al pulsar **Crear Presupuesto**, el navegador ejecuta:
+
+```text
+POST /dashboard/budgets
+ → ruta budgets.store
+ → BudgetController::store(BudgetRequest $request)
+ → BudgetRequest valida name, amount y type
+ → validated() entrega únicamente los datos válidos
+```
+
+La ruta debe declararse con `Route::post()`, porque el formulario utiliza `method="POST"`. Si se registra con `Route::get()`, Laravel responde con `405 Method Not Allowed`.
+
+Actualmente `store()` termina con `dd($data)`: sirve para inspeccionar temporalmente los datos validados, pero todavía no guarda el presupuesto en la base de datos.
 
 ## 6. Cómo se renderiza una vista
 

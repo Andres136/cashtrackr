@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('budgets', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            $table->decimal('amount', 10, 2);
             $table->enum('type',['general','goal'])->default('general');
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->timestamps();
