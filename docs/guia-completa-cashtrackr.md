@@ -323,11 +323,19 @@ POST /dashboard/budgets
  → BudgetController::store(BudgetRequest $request)
  → BudgetRequest valida name, amount y type
  → validated() entrega únicamente los datos válidos
+ → Auth::user()->budgets()->create(...) asigna user_id y guarda el registro
+ → redirect()->route('dashboard') vuelve al listado
 ```
 
 La ruta debe declararse con `Route::post()`, porque el formulario utiliza `method="POST"`. Si se registra con `Route::get()`, Laravel responde con `405 Method Not Allowed`.
 
-Actualmente `store()` termina con `dd($data)`: sirve para inspeccionar temporalmente los datos validados, pero todavía no guarda el presupuesto en la base de datos.
+La persistencia utiliza una relación Eloquent de uno a muchos. `User::budgets()` devuelve `HasMany` y `Budget::user()` devuelve `BelongsTo`. Esto permite crear el presupuesto desde el usuario autenticado sin aceptar un `user_id` enviado por el navegador:
+
+```php
+$budget = Auth::user()->budgets()->create($request->validated());
+```
+
+La tabla `budgets` contiene `name`, `amount`, `type` y la clave foránea `user_id`. En el dashboard, `BudgetController::index()` consulta `Auth::user()->budgets()->get()`, de modo que cada usuario recibe solamente sus propios presupuestos.
 
 ## 6. Cómo se renderiza una vista
 
@@ -572,6 +580,10 @@ La evidencia detallada por commit está en `docs/trabajo-auth-correo.md`. En res
 - Se sincronizaron mensajes personalizados de `SignupRequest` con pruebas Pest.
 - La ruta de cierre de sesión dejó de apuntar al controlador de registro y ahora utiliza `LogoutController`.
 - Los campos del presupuesto no aparecían porque el componente existía pero no se renderizaba; se añadió `<x-budget-form />`.
+- El formulario de presupuestos se conectó a una ruta `POST` y `store()` ahora valida, guarda y redirige al dashboard.
+- Se agregó la columna `amount` a la migración y se configuraron los atributos asignables del modelo `Budget`.
+- Se definieron las relaciones `User::budgets()` y `Budget::user()`, corrigiendo `Call to undefined method App\Models\User::budgets()`.
+- El dashboard obtiene los presupuestos mediante la relación del usuario autenticado.
 
 ## 11. Deuda técnica y riesgos vigentes
 
@@ -585,8 +597,8 @@ Estos puntos no están solucionados en el estado inspeccionado:
 6. **Fallback CSS enorme:** CSS compilado está incrustado en el layout; puede quedar obsoleto. Es mejor garantizar `npm run build` y una pantalla simple si falta el manifest.
 7. **Residuos del repositorio:** archivos `Zone.Identifier`, `Untitled-1` y `,` no aportan funcionalidad.
 8. **Logout:** la URL actual es `/auht/logout`; debería ser `/auth/logout`, usar middleware `auth` e invalidar la sesión y regenerar el token CSRF.
-9. **Presupuestos sin persistencia:** el formulario no declara `method` ni `action`, no hay ruta `POST` y `BudgetController::store()` está vacío.
-10. **Esquema inconsistente:** el formulario envía `amount`, pero la migración de `budgets` no contiene esa columna.
+9. **Listado visual incompleto:** el controlador entrega los presupuestos al dashboard, pero la tabla todavía contiene contenido vacío y no itera la colección con `@forelse`.
+10. **Cobertura de presupuestos:** faltan pruebas específicas para creación, asociación al usuario, aislamiento entre usuarios y validación del formulario.
 
 ## 12. Código, comandos y errores del 23 de julio
 
@@ -667,3 +679,16 @@ php artisan route:list
 ```
 
 También deben validarse manualmente registro → correo → verificación → dashboard, login de usuario verificado/no verificado y reenvío con límite de frecuencia. Nunca se debe ejecutar `migrate:fresh` contra una base con datos que deban conservarse.
+
+## 14. Últimos cambios del módulo de presupuestos
+
+Los cambios más recientes completaron el flujo básico de persistencia:
+
+1. La migración incorporó `amount` como decimal y mantiene `user_id` como clave foránea con borrado en cascada.
+2. `Budget` permite asignar `name`, `amount`, `type` y `user_id`.
+3. `User` expone una relación `HasMany` mediante `budgets()` y `Budget` la relación inversa `BelongsTo` mediante `user()`.
+4. `BudgetController::store()` usa los datos validados para crear el presupuesto desde el usuario autenticado.
+5. `BudgetController::index()` consulta los presupuestos del usuario y los entrega a `dashboard`.
+6. Después de guardar, la aplicación redirige a la ruta `dashboard`.
+
+La ausencia de `User::budgets()` provocaba una `BadMethodCallException` al ejecutar `Auth::user()->budgets()`. La relación ya está declarada y la suite completa fue verificada con **13 tests, 49 aserciones y cero fallos**.

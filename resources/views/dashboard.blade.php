@@ -19,6 +19,8 @@
 
 
 @section('dashboard-contents')
+
+@if(count($budgets) > 0)
 <div class="mt-8 flow-root ">
       <div class="overflow-x-auto ring-1 ring-gray-300 rounded-lg">
           <div class="inline-block min-w-full align-middle">
@@ -35,28 +37,32 @@
                       </tr>
                   </thead>
                   <tbody class="divide-y divide-gray-300 ">
+                    @foreach ($budgets  as $budget)
                           <tr class="flex items-center justify-between">
                               <td class="pt-10 pb-5 px-10 relative">
-                                  <p class=" absolute top-0 left-0 inline-block px-3 py-1 rounded-br-2xl text-sm font-medium w-40
-                                  "></p>
+                                  <p class=" absolute top-0 left-0 inline-block px-3 py-1 rounded-br-2xl text-sm font-medium w-40 text-white
+                                  {{ $budget->isGeneral() ? 'bg-indigo-600': 'bg-orange-600
+                                  text-orange-600' }}
+                                  ">{{ $budget->type }}</p>
                                   <a 
                                       class="text-2xl font-bold text-gray-500 block"
                                       href=""
-                                  ></a>
-                                  <p class="text-lg text-gray-500"></p>
+                                  > {{ $budget->isGeneral() }}</a>
+                                  <p class="text-lg text-gray-500"> ${{ $budget->amount }}</p>
                               </td>
                               <td class="py-6 px-10 flex justify-end gap-3">
 
                               </td>
                           </tr>
+                     @endforeach     
                   </tbody>
               </table>
           </div>
       </div>
   </div>
-
+ @else
   <p class="text-center text-xl mt-10 ">No Hay Presupuestos.
       <a href="{{ route('budgets.create') }}" class="text-amber-500">Comienza creando uno</a>
   </p>
-    
+ @endif   
 @endsection
