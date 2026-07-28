@@ -52,7 +52,7 @@
                               </td>
                               <td class="py-6 px-10 flex shrink-0 justify-end gap-3">
                                    <x-bubget-dropdown
-                                   
+                                      :budget="$budget"
                                    />
                               </td>
                           </tr>

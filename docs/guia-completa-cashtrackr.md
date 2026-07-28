@@ -1,6 +1,6 @@
 # Guía técnica de CashTrackr
 
-Documento actualizado contra el código y el historial Git existente al 24 de julio de 2026.
+Documento actualizado contra el código y el historial Git existente al 28 de julio de 2026.
 
 ## 1. Alcance y arquitectura
 
@@ -114,6 +114,8 @@ Este comando ejecuta en paralelo `php artisan serve`, `queue:listen`, `php artis
 | `GET /dashboard` | `dashboard` | Renderiza dashboard. | `auth`, `verified`. |
 | `GET /dashboard/budgets/create` | `budgets.create` | Renderiza la creación de presupuestos. | `auth`, `verified`. |
 | `POST /dashboard/budgets` | `budgets.store` | Valida los datos enviados al método `store`. | `auth`, `verified`. |
+| `GET /dashboard/budgets/{budget}/edit` | `budgets.edit` | Renderiza la edición del presupuesto. | `auth`, `verified`. |
+| `PUT /dashboard/budgets/{budget}` | `budgets.update` | Valida y actualiza el presupuesto. | `auth`, `verified`. |
 | `ANY /dasboard` | — | Corrige el typo hacia `/dashboard`. | Redirección. |
 | `GET /up` | — | Health check de Laravel. | Pública. |
 
@@ -682,13 +684,8 @@ También deben validarse manualmente registro → correo → verificación → d
 
 ## 14. Últimos cambios del módulo de presupuestos
 
-Los cambios más recientes completaron el flujo básico de persistencia:
+Después del flujo básico de persistencia se incorporaron el listado clasificado en el dashboard, el componente visual de acciones y la edición mediante las rutas `budgets.edit` y `budgets.update`. El mismo componente de formulario se reutiliza para crear y editar, conservando los datos enviados cuando hay errores de validación.
 
-1. La migración incorporó `amount` como decimal y mantiene `user_id` como clave foránea con borrado en cascada.
-2. `Budget` permite asignar `name`, `amount`, `type` y `user_id`.
-3. `User` expone una relación `HasMany` mediante `budgets()` y `Budget` la relación inversa `BelongsTo` mediante `user()`.
-4. `BudgetController::store()` usa los datos validados para crear el presupuesto desde el usuario autenticado.
-5. `BudgetController::index()` consulta los presupuestos del usuario y los entrega a `dashboard`.
-6. Después de guardar, la aplicación redirige a la ruta `dashboard`.
+El detalle por commit, los archivos involucrados, el flujo actualizado y las limitaciones verificadas se mantienen en [Últimos cambios del módulo de presupuestos](ultimos-cambios-presupuestos.md).
 
-La ausencia de `User::budgets()` provocaba una `BadMethodCallException` al ejecutar `Auth::user()->budgets()`. La relación ya está declarada y la suite completa fue verificada con **13 tests, 49 aserciones y cero fallos**.
+El flujo aún no se considera completo: los enlaces del menú no están conectados, no existe eliminación, falta autorización por propietario y `store()` contiene el typo `whith()` en la redirección. Tampoco existen pruebas automatizadas específicas para presupuestos.

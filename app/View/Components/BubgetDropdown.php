@@ -8,12 +8,10 @@ use Illuminate\View\Component;
 
 class BubgetDropdown extends Component
 {
-    /**
-     * Create a new component instance.
-     */
-    public function __construct()
+    public $budget;
+    public function __construct($budget)
     {
-        //
+        $this->budget = $budget;
     }
 
     /**

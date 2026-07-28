@@ -1,6 +1,6 @@
 # CashTrackr
 
-CashTrackr es una aplicación web en Laravel para gestionar usuarios, presupuestos y gastos. El alcance implementado actualmente incluye registro, inicio de sesión, verificación de correo, reenvío del enlace de verificación, acceso protegido al dashboard y creación de presupuestos asociados al usuario autenticado.
+CashTrackr es una aplicación web en Laravel para gestionar usuarios, presupuestos y gastos. El alcance implementado actualmente incluye registro, inicio de sesión, verificación de correo, acceso protegido al dashboard y creación, listado clasificado y edición inicial de presupuestos asociados al usuario autenticado.
 
 ## Stack
 
@@ -40,11 +40,12 @@ php artisan queue:work # procesa trabajos en cola
 ## Documentación
 
 - [Guía técnica completa](docs/guia-completa-cashtrackr.md): arquitectura, comandos, archivos, rutas y renderizado.
+- [Últimos cambios de presupuestos](docs/ultimos-cambios-presupuestos.md): listado, clasificación, edición, historial por commit y limitaciones vigentes.
 - [Historial de autenticación y correo](docs/trabajo-auth-correo.md): errores corregidos, evidencia Git y deuda técnica vigente.
 
 ## Estado actual
 
-El núcleo de autenticación está implementado y el módulo de presupuestos ya permite validar y guardar registros asociados al usuario autenticado. El dashboard consulta únicamente los presupuestos de ese usuario. La última ejecución de la suite completó **13 tests y 49 aserciones sin fallos**.
+El núcleo de autenticación está implementado. El módulo de presupuestos permite validar, guardar, listar por usuario y actualizar registros mediante un formulario reutilizable. El menú de acciones, la eliminación, la autorización por propietario y las pruebas específicas del módulo siguen pendientes. Consulte el documento de últimos cambios para conocer las limitaciones detectadas.
 
 ## Seguridad
 

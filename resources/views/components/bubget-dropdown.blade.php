@@ -16,7 +16,7 @@
             <a href=""
                 class="block px-4 py-2 text-sm text-gray-700 focus:bg-gray-100 focus:text-gray-900 focus:outline-hidden dark:text-gray-300 dark:focus:bg-white/5 dark:focus:text-white">Ver Presupuesto</a>
 
-            <a href=""
+            <a href="{{ route('budgets.edit', $budget) }}"
                 class="block px-4 py-2 text-sm text-gray-700 focus:bg-gray-100 focus:text-gray-900 focus:outline-hidden dark:text-gray-300 dark:focus:bg-white/5 dark:focus:text-white">Editar Presupuesto</a>
 
             <button 
