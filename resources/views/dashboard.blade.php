@@ -43,14 +43,14 @@
                                   <p class=" absolute top-0 left-0 inline-block px-3 py-1 rounded-br-2xl text-sm font-medium w-40 text-white
                                   {{ $budget->isGeneral() ? 'bg-indigo-600': 'bg-orange-600
                                   text-orange-600' }}
-                                  ">{{ $budget->type }}</p>
+                                  ">{{ $budget->isGeneral() ? 'General' : 'Proyecto' }}</p>
                                   <a 
                                       class="text-2xl font-bold text-gray-500 block"
                                       href=""
-                                  > {{ $budget->isGeneral() }}</a>
+                                  >{{ $budget->name }}</a>
                                   <p class="text-lg text-gray-500"> ${{ $budget->amount }}</p>
                               </td>
-                              <td class="py-6 px-10 flex justify-end gap-3">
+                              <td class="py-6 px-10 flex shrink-0 justify-end gap-3">
                                    <x-bubget-dropdown
                                    
                                    />

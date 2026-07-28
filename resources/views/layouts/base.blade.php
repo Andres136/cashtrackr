@@ -49,6 +49,11 @@
                 </nav>
             </div>
           </header>
+          @if(session('success'))
+          <div class="max-w-5xl mx-auto">
+             <x-alert :message="session('success')" />
+          </div>
+          @endif
           @yield('contents')
     </body>
     </html>
