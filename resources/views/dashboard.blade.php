@@ -54,6 +54,12 @@
                                    <x-bubget-dropdown
                                       :budget="$budget"
                                    />
+                                   <x-confirm-delete
+                                   :id="'delete-dialog-'.$budget->id"
+                                    :title="'Eliminar Presupuesto'.$budget->name"
+                                   message="Este accion no se puede dehacer"
+                                   :action="route('budgets.destroy',$budget)"
+                                   />
                               </td>
                           </tr>
                      @endforeach     

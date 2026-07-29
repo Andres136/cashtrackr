@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\BudgetRequest;
 use App\Models\Budget;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Attributes\Controllers\Authorize;
 use Illuminate\Routing\Attributes\Controllers\Middleware;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
@@ -44,7 +45,7 @@ class BudgetController extends Controller
         
          
         $budget = Auth::user()->budgets()->create($request->validated());
-        return redirect()->route('dashboard')->whith('success', 'Presupuesto creado  correctamente');;
+        return redirect()->route('dashboard')->with('success', 'Presupuesto creado  correctamente');;
     }
 
     /**
@@ -55,9 +56,7 @@ class BudgetController extends Controller
         //
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
+      #[Authorize('update', 'budget')]
     public function edit(Budget $budget)
     {
         return view('budgets.edit',  [
@@ -65,9 +64,7 @@ class BudgetController extends Controller
      ]);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
+    #[Authorize('update', 'budget')]
     public function update(BudgetRequest $request, Budget $budget)
 {
     $budget->update($request->validated());
@@ -79,11 +76,14 @@ class BudgetController extends Controller
     
 }
 
-    /**
-     * Remove the specified resource from storage.
-     */
+    #[Authorize('delete', 'budget')]
     public function destroy(Budget $budget)
     {
-        //
+       $budget->delete();
+       return redirect()
+        ->route('dashboard')
+        ->with('success', 'Presupuesto elimnado correctamente');
+
+
     }
 }

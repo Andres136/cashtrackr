@@ -599,7 +599,7 @@ Estos puntos no están solucionados en el estado inspeccionado:
 6. **Fallback CSS enorme:** CSS compilado está incrustado en el layout; puede quedar obsoleto. Es mejor garantizar `npm run build` y una pantalla simple si falta el manifest.
 7. **Residuos del repositorio:** archivos `Zone.Identifier`, `Untitled-1` y `,` no aportan funcionalidad.
 8. **Logout:** la URL actual es `/auht/logout`; debería ser `/auth/logout`, usar middleware `auth` e invalidar la sesión y regenerar el token CSRF.
-9. **Listado visual incompleto:** el controlador entrega los presupuestos al dashboard, pero la tabla todavía contiene contenido vacío y no itera la colección con `@forelse`.
+9. **Acciones incompletas:** el listado ya muestra los presupuestos y permite abrir su edición, pero “Ver Presupuesto” sigue sin destino y “Eliminar” aún no ejecuta ninguna acción.
 10. **Cobertura de presupuestos:** faltan pruebas específicas para creación, asociación al usuario, aislamiento entre usuarios y validación del formulario.
 
 ## 12. Código, comandos y errores del 23 de julio
@@ -684,8 +684,73 @@ También deben validarse manualmente registro → correo → verificación → d
 
 ## 14. Últimos cambios del módulo de presupuestos
 
-Después del flujo básico de persistencia se incorporaron el listado clasificado en el dashboard, el componente visual de acciones y la edición mediante las rutas `budgets.edit` y `budgets.update`. El mismo componente de formulario se reutiliza para crear y editar, conservando los datos enviados cuando hay errores de validación.
+Los commits más recientes ampliaron el módulo desde la creación básica hasta el listado clasificado y la edición de presupuestos.
+
+### Listado y clasificación
+
+`BudgetController::index()` obtiene los presupuestos mediante la relación del usuario autenticado y los entrega al dashboard. La vista recorre la colección y muestra:
+
+- el nombre del presupuesto;
+- el monto disponible;
+- el tipo traducido para la interfaz: `general` se presenta como **General** y `goal` como **Proyecto**;
+- un color diferente para cada tipo;
+- un mensaje con acceso a la creación cuando la colección está vacía.
+
+El modelo `Budget` convierte `type` al enum `BudgetType`. Los métodos `isGeneral()` e `isGoal()` evitan comparar strings directamente desde las vistas.
+
+### Menú de acciones
+
+Cada fila renderiza el componente con el presupuesto correspondiente:
+
+```blade
+<x-bubget-dropdown :budget="$budget" />
+```
+
+`BubgetDropdown` recibe ese objeto en el constructor y lo expone a `components/bubget-dropdown.blade.php`. De esta manera, la opción **Editar Presupuesto** construye una URL específica para el registro:
+
+```blade
+<a href="{{ route('budgets.edit', $budget) }}">
+    Editar Presupuesto
+</a>
+```
+
+El nombre `BubgetDropdown` conserva el typo “Bubget”. Las opciones **Ver Presupuesto** y **Eliminar** todavía no están conectadas; la edición sí tiene una ruta funcional.
+
+### Edición y actualización
+
+La edición utiliza dos rutas:
+
+```text
+GET /dashboard/budgets/{budget}/edit
+ → budgets.edit
+ → BudgetController::edit()
+ → budgets/edit.blade.php
+
+PUT /dashboard/budgets/{budget}
+ → budgets.update
+ → BudgetRequest
+ → BudgetController::update()
+ → redirección al dashboard
+```
+
+`budgets/edit.blade.php` reutiliza `<x-budget-form :budget="$budget" />`. El componente carga el nombre, el monto y el tipo actuales, pero da prioridad a `old()` cuando la validación devuelve al formulario. El envío usa `POST` con `@method('PUT')`, valida mediante `BudgetRequest` y actualiza únicamente los datos validados.
+
+Después de la actualización correcta, el controlador redirige al dashboard con el mensaje **“Presupuesto actualizado correctamente”**, mostrado por el componente global de alertas.
+
+### Archivos involucrados
+
+| Archivo | Cambio reciente |
+|---|---|
+| `app/Http/Controllers/BudgetController.php` | Añadió `edit()` y la actualización validada en `update()`. |
+| `app/Models/Budget.php` | Incorporó el cast a `BudgetType` y los métodos de clasificación. |
+| `app/View/Components/BudgetForm.php` | Recibe el presupuesto utilizado durante la edición. |
+| `app/View/Components/BubgetDropdown.php` | Recibe el presupuesto de cada fila del dashboard. |
+| `resources/views/dashboard.blade.php` | Lista, clasifica y entrega cada presupuesto al menú. |
+| `resources/views/budgets/edit.blade.php` | Presenta el formulario y envía la actualización por `PUT`. |
+| `resources/views/components/budget-form.blade.php` | Comparte campos y valores entre creación y edición. |
+| `resources/views/components/bubget-dropdown.blade.php` | Conecta la opción de edición con `budgets.edit`. |
+| `routes/web.php` | Declara `budgets.edit` y `budgets.update`. |
 
 El detalle por commit, los archivos involucrados, el flujo actualizado y las limitaciones verificadas se mantienen en [Últimos cambios del módulo de presupuestos](ultimos-cambios-presupuestos.md).
 
-El flujo aún no se considera completo: los enlaces del menú no están conectados, no existe eliminación, falta autorización por propietario y `store()` contiene el typo `whith()` en la redirección. Tampoco existen pruebas automatizadas específicas para presupuestos.
+El flujo aún no se considera completo: “Ver Presupuesto” y “Eliminar” no están conectados, falta autorización por propietario y `store()` contiene el typo `whith()` en la redirección. Tampoco existen pruebas automatizadas específicas para presupuestos.
